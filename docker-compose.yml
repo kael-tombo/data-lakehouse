@@ -1,0 +1,29 @@
+# Object storage + SQL engine + BI. Spark/Airflow run from your environment (see README).
+services:
+  minio:
+    image: minio/minio
+    command: server /data --console-address ":9001"
+    ports: ["9000:9000", "9001:9001"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY in your environment}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Set S3_SECRET_KEY in your environment}
+  minio-init:
+    image: minio/mc
+    depends_on: [minio]
+    entrypoint: ["/bin/sh", "-c", "sleep 5; mc alias set local http://minio:9000 \"$${MINIO_ROOT_USER}\" \"$${MINIO_ROOT_PASSWORD}\"; mc mb -p local/lake"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY in your environment}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Set S3_SECRET_KEY in your environment}
+  trino:
+    image: trinodb/trino:latest
+    ports: ["8080:8080"]
+    volumes: ["./docker/trino/catalog:/etc/trino/catalog"]
+    environment:
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY in your environment}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?Set S3_SECRET_KEY in your environment}
+    depends_on: [minio]
+  superset:
+    image: apache/superset:latest
+    ports: ["8088:8088"]
+    environment:
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:?Set SUPERSET_SECRET_KEY in your environment}
